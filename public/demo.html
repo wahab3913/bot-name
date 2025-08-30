@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chatbot Demo</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        padding: 40px;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .feature {
+        background: #f8f9fa;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 10px;
+        border-left: 4px solid #101238;
+      }
+      .code {
+        background: #2d3748;
+        color: #e2e8f0;
+        padding: 15px;
+        border-radius: 8px;
+        font-family: 'Courier New', monospace;
+        overflow-x: auto;
+        margin: 10px 0;
+      }
+      .btn {
+        background: #101238;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 5px;
+      }
+      .btn:hover {
+        background: #1a1f4a;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🤖 Chatbot Demo</h1>
+
+      <div class="feature">
+        <h3>✨ Features</h3>
+        <ul>
+          <li>Floating chat button (80x80px when closed)</li>
+          <li>Expands to 400x400px when opened</li>
+          <li>Smooth animations and transitions</li>
+          <li>Responsive design</li>
+          <li>Custom blue theme (#101238)</li>
+        </ul>
+      </div>
+
+      <div class="feature">
+        <h3>📋 How to Embed</h3>
+        <p>Add this script tag to your website:</p>
+        <div class="code">
+          &lt;script
+          src="https://your-app.vercel.app/chatbot-embed.js"&gt;&lt;/script&gt;
+        </div>
+
+        <p>Or use the inline code:</p>
+        <div class="code">
+          &lt;script&gt; // Configuration window.ChatbotConfig = { chatbotUrl:
+          'https://your-app.vercel.app/chat', position: 'bottom-right', //
+          'bottom-right', 'bottom-left', 'top-right', 'top-left' closedSize: 80,
+          openSize: 400 }; &lt;/script&gt; &lt;script
+          src="https://your-app.vercel.app/chatbot-embed.js"&gt;&lt;/script&gt;
+        </div>
+      </div>
+
+      <div class="feature">
+        <h3>🎛️ Manual Control</h3>
+        <p>You can control the chatbot programmatically:</p>
+        <button class="btn" onclick="window.ChatbotEmbed.resize(true)">
+          Open Chat
+        </button>
+        <button class="btn" onclick="window.ChatbotEmbed.resize(false)">
+          Close Chat
+        </button>
+        <button class="btn" onclick="console.log(window.ChatbotEmbed.config)">
+          Show Config
+        </button>
+      </div>
+
+      <div class="feature">
+        <h3>🎨 Customization</h3>
+        <p>You can customize the chatbot by modifying the config object:</p>
+        <div class="code">
+          // Change position window.ChatbotConfig = { position: 'top-right' //
+          Options: bottom-right, bottom-left, top-right, top-left }; // Change
+          sizes window.ChatbotConfig = { closedSize: 60, // Smaller button
+          openSize: 500 // Larger chat window };
+        </div>
+      </div>
+
+      <div class="feature">
+        <h3>📱 Mobile Responsive</h3>
+        <p>
+          The chatbot automatically adjusts for mobile devices with smaller
+          sizes and touch-friendly interactions.
+        </p>
+      </div>
+    </div>
+
+    <!-- Chatbot Embed Script -->
+    <script>
+      // Configuration
+      window.ChatbotConfig = {
+        chatbotUrl: 'http://localhost:3000/chat', // Change to your deployed URL
+        position: 'bottom-right',
+        closedSize: 80,
+        openSize: 400,
+      };
+    </script>
+    <script src="/chatbot-embed.js"></script>
+  </body>
+</html>

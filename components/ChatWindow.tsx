@@ -35,6 +35,45 @@ export default function ChatWindow() {
     scrollToBottom();
   }, [messages]);
 
+  // Listen for messages from parent
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'CLOSE_CHAT') {
+        handleCloseChat();
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Function to request iframe resize from parent
+  const requestIframeResize = (isOpen: boolean) => {
+    if (typeof window !== 'undefined' && window.parent !== window) {
+      // We're in an iframe, send message to parent
+      window.parent.postMessage(
+        {
+          type: 'CHAT_TOGGLE',
+          isOpen: isOpen,
+          width: isOpen ? '400px' : '80px',
+          height: isOpen ? '400px' : '80px',
+        },
+        '*'
+      );
+    }
+  };
+
+  const handleToggleChat = () => {
+    const newIsOpen = !isOpen;
+    setIsOpen(newIsOpen);
+    requestIframeResize(newIsOpen);
+  };
+
+  const handleCloseChat = () => {
+    setIsOpen(false);
+    requestIframeResize(false);
+  };
+
   const handleSendMessage = async (text: string) => {
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -63,7 +102,7 @@ export default function ChatWindow() {
     <div className="floating-chat">
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={handleToggleChat}
           className="bg-[#101238] hover:bg-[#1a1f4a] text-white rounded-full p-4 shadow-lg transition-all duration-200 hover:scale-110 animate-bounce-in"
         >
           <MessageCircle size={24} />
@@ -79,7 +118,7 @@ export default function ChatWindow() {
               <h3 className="font-semibold">AI Assistant</h3>
             </div>
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={handleCloseChat}
               className="hover:bg-[#1a1f4a] p-1 rounded transition-colors"
             >
               <X size={18} />
