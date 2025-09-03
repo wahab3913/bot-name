@@ -17,6 +17,7 @@
 /build
 .env
 env
+chatbot.html
 # misc
 .DS_Store
 *.pem
