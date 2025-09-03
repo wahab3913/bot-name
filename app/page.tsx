@@ -31,9 +31,7 @@ export default function AdminLogin() {
       const data = await response.json();
 
       if (data.success) {
-        // Token is stored in HTTP-only cookie automatically
-        // User data will be fetched from server when needed
-        // Redirect to dashboard
+        console.log('Login successful');
         router.push('/admin/dashboard');
       } else {
         setError(data.error || 'Login failed');

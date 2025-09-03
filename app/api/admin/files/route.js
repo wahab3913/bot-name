@@ -31,7 +31,8 @@ export const GET = requireAuth(async (request) => {
 // Save file info after Firebase upload
 export const POST = requireAuth(async (request) => {
   try {
-    const { fileName, fileUrl, fileSize, fileType } = await request.json();
+    const { fileName, fileUrl, fileSize, fileType, filePath } =
+      await request.json();
 
     if (!fileName || !fileUrl) {
       return NextResponse.json(
@@ -46,12 +47,25 @@ export const POST = requireAuth(async (request) => {
     const newFile = {
       fileName,
       fileUrl,
+      filePath,
       fileSize: fileSize || 0,
       fileType: fileType || 'unknown',
       uploadedAt: new Date(),
     };
 
     const result = await db.collection('files').insertOne(newFile);
+
+    // Fire-and-forget: trigger embeddings creation
+    try {
+      fetch('https://awaken-ai.sparkixtech.com/create_embeddings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agent_id: `${request.userId}`,
+          files: [{ fileName, downloadURL: fileUrl }],
+        }),
+      }).catch(() => {});
+    } catch {}
 
     return NextResponse.json({
       success: true,
@@ -90,6 +104,18 @@ export const DELETE = requireAuth(async (request) => {
 
     // Delete from MongoDB
     await db.collection('files').deleteOne({ _id: new ObjectId(id) });
+
+    // Fire-and-forget: trigger embeddings deletion
+    try {
+      fetch('https://awaken-ai.sparkixtech.com/delete_single_document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: file.fileName,
+          agent_id: `${request.userId}`,
+        }),
+      }).catch(() => {});
+    } catch {}
 
     return NextResponse.json({
       success: true,

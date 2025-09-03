@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-// Firebase client-side removed - using server-side API only
+// Using Firebase Web SDK for client-side uploads/deletes
 import {
   Upload,
   FileText,
@@ -14,12 +14,20 @@ import {
   X,
   File,
 } from 'lucide-react';
+import { storage } from '@/lib/firebase';
+import {
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  deleteObject,
+} from 'firebase/storage';
 import ConfirmationModal from '../components/ConfirmationModal';
 
 interface FileData {
   _id: string;
   fileName: string;
   fileUrl: string;
+  filePath?: string;
   fileSize: number;
   fileType: string;
   uploadedAt: string;
@@ -89,31 +97,42 @@ export default function FileManagement() {
     setUploadProgress((prev) => ({ ...prev, [fileId]: 0 }));
 
     try {
-      // Create FormData for server-side upload
-      const formData = new FormData();
-      formData.append('file', file);
+      // Upload to Firebase Storage (client-side)
+      const timestamp = Date.now();
+      const storageFileName = `${timestamp}_${file.name}`;
+      const filePath = `uploads/${storageFileName}`;
+      const storageRef = ref(storage, filePath);
 
-      // Simulate progress for demo
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          const current = prev[fileId] || 0;
-          if (current >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          return { ...prev, [fileId]: current + Math.random() * 20 };
-        });
-      }, 200);
-
-      // Upload using server-side API
-      const response = await fetch('/api/admin/upload', {
-        method: 'POST',
-        credentials: 'include', // Include HTTP-only cookies
-        body: formData,
+      await new Promise<void>((resolve, reject) => {
+        const uploadTask = uploadBytesResumable(storageRef, file);
+        uploadTask.on(
+          'state_changed',
+          (snapshot: { bytesTransferred: number; totalBytes: number }) => {
+            const progress = Math.round(
+              (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+            );
+            setUploadProgress((prev) => ({ ...prev, [fileId]: progress }));
+          },
+          (err: unknown) => reject(err),
+          () => resolve()
+        );
       });
 
-      clearInterval(progressInterval);
-      setUploadProgress((prev) => ({ ...prev, [fileId]: 100 }));
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // Save metadata to database via API
+      const response = await fetch('/api/admin/files', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileUrl: downloadURL,
+          filePath: filePath,
+          fileSize: file.size,
+          fileType: file.type,
+        }),
+      });
 
       if (response.status === 401) {
         window.location.href = '/';
@@ -129,7 +148,7 @@ export default function FileManagement() {
             const { [fileId]: removed, ...rest } = prev;
             return rest;
           });
-        }, 1000);
+        }, 500);
       } else {
         console.error('Upload failed:', data.error);
         alert(`Upload failed: ${data.error}`);
@@ -166,10 +185,10 @@ export default function FileManagement() {
     setDeleteModal((prev) => ({ ...prev, isDeleting: true }));
 
     try {
-      // Delete from both Firebase and MongoDB using server-side API
-      const response = await fetch(`/api/admin/upload?id=${file._id}`, {
+      // Delete DB record via API
+      const response = await fetch(`/api/admin/files?id=${file._id}`, {
         method: 'DELETE',
-        credentials: 'include', // Include HTTP-only cookies
+        credentials: 'include',
       });
 
       if (response.status === 401) {
@@ -180,6 +199,21 @@ export default function FileManagement() {
       const data = await response.json();
 
       if (data.success) {
+        // Attempt to delete from Firebase Storage using stored path, fallback to URL
+        if (file.filePath) {
+          try {
+            await deleteObject(ref(storage, file.filePath));
+          } catch (e) {
+            console.warn('Storage delete warning:', e);
+          }
+        } else if (data.fileUrl) {
+          try {
+            await deleteObject(ref(storage, data.fileUrl));
+          } catch (e) {
+            console.warn('Storage delete warning:', e);
+          }
+        }
+
         // Remove from local state
         setFiles(files.filter((f) => f._id !== file._id));
         closeDeleteModal();

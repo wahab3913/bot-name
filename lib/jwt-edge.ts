@@ -1,14 +1,18 @@
 // Edge Runtime compatible JWT utilities
 import { SignJWT, jwtVerify } from 'jose';
+import type { JWTPayload as JoseJWTPayload } from 'jose';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const secret = new TextEncoder().encode(JWT_SECRET);
 
-export interface JWTPayload {
+export interface JWTPayload extends JoseJWTPayload {
   userId: string;
   type?: string;
-  iat?: number;
-  exp?: number;
+}
+
+function isAppJWTPayload(payload: JoseJWTPayload): payload is JWTPayload {
+  const maybeUserId = (payload as Record<string, unknown>)['userId'];
+  return typeof maybeUserId === 'string';
 }
 
 // Generate JWT token (Edge Runtime compatible)
@@ -26,7 +30,10 @@ export async function verifyTokenEdge(
 ): Promise<JWTPayload | null> {
   try {
     const { payload } = await jwtVerify(token, secret);
-    return payload as JWTPayload;
+    if (isAppJWTPayload(payload)) {
+      return payload;
+    }
+    return null;
   } catch (error) {
     return null;
   }

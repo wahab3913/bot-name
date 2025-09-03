@@ -13,6 +13,7 @@ import {
   Brain,
   Sparkles,
   User,
+  Bot,
 } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 
@@ -107,6 +108,12 @@ export default function AdminLayoutClient({
       href: '/admin/dashboard/qa',
       icon: MessageSquare,
       current: pathname === '/admin/dashboard/qa',
+    },
+    {
+      name: 'Chatbot',
+      href: '/admin/dashboard/chatbot',
+      icon: Bot,
+      current: pathname === '/admin/dashboard/chatbot',
     },
   ];
 

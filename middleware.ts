@@ -24,6 +24,7 @@ export async function middleware(request: NextRequest) {
     ?.replace('Bearer ', '');
   const token = cookieToken || headerToken;
 
+  console.log(cookieToken, headerToken, 'token');
   const user = await verifyToken(token);
 
   // Define protected and public routes
