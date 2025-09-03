@@ -7,16 +7,8 @@ import { ObjectId } from 'mongodb';
 // Upload file using Firebase Admin SDK
 export const POST = requireAuth(async (request) => {
   try {
-    console.log('Upload request received, userId:', request.userId);
-
     const formData = await request.formData();
     const file = formData.get('file');
-
-    console.log('File details:', {
-      name: file?.name,
-      size: file?.size,
-      type: file?.type,
-    });
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -55,21 +47,12 @@ export const POST = requireAuth(async (request) => {
     const fileName = `${timestamp}_${originalName}`;
     const filePath = `uploads/${fileName}`;
 
-    console.log('Converting file to buffer...');
     // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer());
-    console.log('Buffer created, size:', buffer.length);
 
-    console.log('Initializing Firebase Storage...');
     // Upload to Firebase Storage using Admin SDK
     const bucket = adminStorage.bucket();
-    console.log('Bucket name:', bucket.name);
-    console.log('Expected bucket: ai-language-tutor-55977.appspot.com');
-
     const fileUpload = bucket.file(filePath);
-    console.log('File path:', filePath);
-
-    console.log('Uploading file to Firebase Storage...');
     await fileUpload.save(buffer, {
       metadata: {
         contentType: file.type,
@@ -80,20 +63,12 @@ export const POST = requireAuth(async (request) => {
         },
       },
     });
-    console.log('File uploaded successfully');
 
-    console.log('Generating signed URL...');
     // Generate a signed URL for secure access
     const [downloadURL] = await fileUpload.getSignedUrl({
       action: 'read',
       expires: Date.now() + 365 * 24 * 60 * 60 * 1000, // 1 year from now
     });
-    console.log(
-      'Signed URL generated:',
-      downloadURL?.substring(0, 100) + '...'
-    );
-
-    console.log('Saving to MongoDB...');
     // Save file metadata to MongoDB
     const client = await clientPromise;
     const db = client.db('awaken');
@@ -109,10 +84,8 @@ export const POST = requireAuth(async (request) => {
     };
 
     const result = await db.collection('files').insertOne(fileData);
-    console.log('File metadata saved to MongoDB:', result.insertedId);
 
     // Send to Python API for embeddings creation
-    console.log('Sending to Python API for embeddings...');
     try {
       const pythonApiResponse = await fetch(
         'https://awaken-ai.sparkixtech.com/create_embeddings',
@@ -134,7 +107,6 @@ export const POST = requireAuth(async (request) => {
       );
 
       const pythonApiData = await pythonApiResponse.json();
-      console.log('Python API response:', pythonApiData);
 
       if (!pythonApiResponse.ok) {
         console.error('Python API failed:', pythonApiData);
@@ -179,7 +151,7 @@ export const DELETE = requireAuth(async (request) => {
       );
     }
 
-    console.log('Delete request received for file ID:', fileId);
+    // console.log('Delete request received for file ID:', fileId);
 
     // Get file metadata from MongoDB first
     const client = await clientPromise;
@@ -194,8 +166,6 @@ export const DELETE = requireAuth(async (request) => {
       return NextResponse.json({ error: 'File not found' }, { status: 404 });
     }
 
-    console.log('File found in database:', file.fileName);
-
     // Use stored file path from database (preferred) or construct it as fallback
     let filePath = file.filePath;
 
@@ -204,28 +174,17 @@ export const DELETE = requireAuth(async (request) => {
       const uploadDate = new Date(file.uploadedAt);
       const timestamp = uploadDate.getTime();
       filePath = `uploads/${timestamp}_${file.fileName}`;
-      console.log('Using fallback filePath for older file:', filePath);
     }
-
-    console.log('Attempting to delete from Firebase Storage:', filePath);
 
     // Delete from Firebase Storage
     try {
       const bucket = adminStorage.bucket();
-      console.log('Firebase bucket name:', bucket.name);
-
       const fileRef = bucket.file(filePath);
-      console.log('Checking if file exists at path:', filePath);
-
       const [exists] = await fileRef.exists();
-      console.log('File exists in Firebase Storage:', exists);
 
       if (exists) {
         await fileRef.delete();
-        console.log('✅ File successfully deleted from Firebase Storage');
       } else {
-        console.log('⚠️ File not found in Firebase Storage at path:', filePath);
-
         // Try alternative path formats for debugging
         const alternativePaths = [
           filePath.replace('uploads/', ''),
@@ -235,10 +194,8 @@ export const DELETE = requireAuth(async (request) => {
 
         for (const altPath of alternativePaths) {
           const [altExists] = await bucket.file(altPath).exists();
-          console.log(`Checking alternative path ${altPath}: ${altExists}`);
           if (altExists) {
             await bucket.file(altPath).delete();
-            console.log(`✅ File deleted from alternative path: ${altPath}`);
             break;
           }
         }
@@ -266,10 +223,7 @@ export const DELETE = requireAuth(async (request) => {
       );
     }
 
-    console.log('File deleted from MongoDB');
-
     // Delete from Python API embeddings
-    console.log('Deleting from Python API embeddings...');
     try {
       const pythonApiResponse = await fetch(
         'https://awaken-ai.sparkixtech.com/delete_single_document',
@@ -286,7 +240,6 @@ export const DELETE = requireAuth(async (request) => {
       );
 
       const pythonApiData = await pythonApiResponse.json();
-      console.log('Python API delete response:', pythonApiData);
 
       if (!pythonApiResponse.ok) {
         console.error('Python API delete failed:', pythonApiData);

@@ -31,8 +31,9 @@ export default function AdminLogin() {
       const data = await response.json();
 
       if (data.success) {
-        localStorage.setItem('adminToken', data.token);
-        localStorage.setItem('adminUser', JSON.stringify(data.user));
+        // Token is stored in HTTP-only cookie automatically
+        // User data will be fetched from server when needed
+        // Redirect to dashboard
         router.push('/admin/dashboard');
       } else {
         setError(data.error || 'Login failed');
@@ -190,7 +191,7 @@ export default function AdminLogin() {
               Awaken AI Admin Panel © 2025
             </p>
             <p className="text-xs text-purple-400 mt-1">
-              Powered by Intelligence, Driven by Innovation
+              Powered by Sparkix Technologies
             </p>
           </div>
         </div>

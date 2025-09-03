@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyPassword, generateToken } from '@/lib/auth';
+import { setAuthCookie } from '@/lib/auth-cookies';
 
 export async function POST(request) {
   try {
@@ -37,16 +38,14 @@ export async function POST(request) {
     }
 
     // Generate JWT token
-    const token = generateToken(admin._id.toString());
+    const token = await generateToken(admin._id.toString());
+
+    // Set secure HTTP-only cookie
+    setAuthCookie(token);
 
     return NextResponse.json({
       success: true,
-      token,
-      user: {
-        id: admin._id,
-        email: admin.email,
-        name: admin.name,
-      },
+      message: 'Login successful',
     });
   } catch (error) {
     console.error('Login error:', error);

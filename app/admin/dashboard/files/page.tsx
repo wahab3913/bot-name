@@ -14,6 +14,7 @@ import {
   X,
   File,
 } from 'lucide-react';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface FileData {
   _id: string;
@@ -35,7 +36,8 @@ export default function FileManagement() {
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     file: FileData | null;
-  }>({ isOpen: false, file: null });
+    isDeleting: boolean;
+  }>({ isOpen: false, file: null, isDeleting: false });
 
   useEffect(() => {
     fetchFiles();
@@ -43,11 +45,8 @@ export default function FileManagement() {
 
   const fetchFiles = async () => {
     try {
-      const token = localStorage.getItem('adminToken');
       const response = await fetch('/api/admin/files', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include', // Include HTTP-only cookies
       });
       const data = await response.json();
 
@@ -90,13 +89,6 @@ export default function FileManagement() {
     setUploadProgress((prev) => ({ ...prev, [fileId]: 0 }));
 
     try {
-      const token = localStorage.getItem('adminToken');
-
-      if (!token) {
-        window.location.href = '/admin/login';
-        return;
-      }
-
       // Create FormData for server-side upload
       const formData = new FormData();
       formData.append('file', file);
@@ -116,9 +108,7 @@ export default function FileManagement() {
       // Upload using server-side API
       const response = await fetch('/api/admin/upload', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include', // Include HTTP-only cookies
         body: formData,
       });
 
@@ -126,9 +116,7 @@ export default function FileManagement() {
       setUploadProgress((prev) => ({ ...prev, [fileId]: 100 }));
 
       if (response.status === 401) {
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminUser');
-        window.location.href = '/admin/login';
+        window.location.href = '/';
         return;
       }
 
@@ -163,37 +151,29 @@ export default function FileManagement() {
   };
 
   const openDeleteModal = (file: FileData) => {
-    setDeleteModal({ isOpen: true, file });
+    setDeleteModal({ isOpen: true, file, isDeleting: false });
   };
 
   const closeDeleteModal = () => {
-    setDeleteModal({ isOpen: false, file: null });
+    setDeleteModal({ isOpen: false, file: null, isDeleting: false });
   };
 
   const confirmDelete = async () => {
     const file = deleteModal.file;
     if (!file) return;
 
+    // Set deleting state
+    setDeleteModal((prev) => ({ ...prev, isDeleting: true }));
+
     try {
-      const token = localStorage.getItem('adminToken');
-
-      if (!token) {
-        window.location.href = '/admin/login';
-        return;
-      }
-
       // Delete from both Firebase and MongoDB using server-side API
       const response = await fetch(`/api/admin/upload?id=${file._id}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include', // Include HTTP-only cookies
       });
 
       if (response.status === 401) {
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminUser');
-        window.location.href = '/admin/login';
+        window.location.href = '/';
         return;
       }
 
@@ -205,9 +185,11 @@ export default function FileManagement() {
         closeDeleteModal();
       } else {
         console.error('Delete failed:', data.error);
+        setDeleteModal((prev) => ({ ...prev, isDeleting: false }));
       }
     } catch (error) {
       console.error('Error deleting file:', error);
+      setDeleteModal((prev) => ({ ...prev, isDeleting: false }));
     }
   };
 
@@ -259,12 +241,12 @@ export default function FileManagement() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-col md:flex-row">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="md:text-3xl font-bold text-gray-900">
             Knowledge Base Files
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-gray-600 mt-2 text-sm md:text-base">
             Upload and manage documents to enhance AI understanding
           </p>
         </div>
@@ -311,7 +293,7 @@ export default function FileManagement() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-lg mx-auto">
+          <div className="flex flex-wrap gap-8 justify-center max-w-lg mx-auto">
             {[
               { icon: FileText, label: 'PDFs', color: 'text-red-500' },
               { icon: File, label: 'Word Docs', color: 'text-blue-500' },
@@ -462,13 +444,13 @@ export default function FileManagement() {
                     </div>
 
                     <div className="space-y-2 mb-4">
-                      <div className="flex items-center justify-between text-xs">
+                      {/* <div className="flex items-center justify-between text-xs">
                         <span className="text-gray-500">Type</span>
                         <span className="text-gray-900 font-medium">
                           {file.fileType.split('/')[1]?.toUpperCase() ||
                             'Unknown'}
                         </span>
-                      </div>
+                      </div> */}
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-gray-500">Uploaded</span>
                         <span className="text-gray-900">
@@ -510,51 +492,17 @@ export default function FileManagement() {
       </div>
 
       {/* Delete Confirmation Modal */}
-      {deleteModal.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
-            <div className="flex items-center mb-4">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-4">
-                <Trash2 className="h-6 w-6 text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Delete File
-                </h3>
-                <p className="text-sm text-gray-500">
-                  This action cannot be undone
-                </p>
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <p className="text-gray-700">
-                Are you sure you want to delete{' '}
-                <span className="font-semibold text-gray-900">
-                  {deleteModal.file?.fileName}
-                </span>
-                ? This will permanently remove the file from both storage and
-                database.
-              </p>
-            </div>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={closeDeleteModal}
-                className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-xl hover:bg-gray-200 transition-colors font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="flex-1 bg-red-600 text-white py-2 px-4 rounded-xl hover:bg-red-700 transition-colors font-medium"
-              >
-                Delete File
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDelete}
+        title="Delete File"
+        message={`Are you sure you want to delete "${deleteModal.file?.fileName}"? This will permanently remove the file from both storage and database.`}
+        confirmText="Delete File"
+        cancelText="Cancel"
+        type="danger"
+        isLoading={deleteModal.isDeleting}
+      />
     </div>
   );
 }

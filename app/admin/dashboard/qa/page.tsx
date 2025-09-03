@@ -7,6 +7,7 @@ import QATable from './components/QATable';
 import QACardList from './components/QACardList';
 import QAModal from './components/QAModal';
 import EmptyState from './components/EmptyState';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface QAData {
   _id: string;
@@ -21,6 +22,11 @@ export default function QAManagement() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingQA, setEditingQA] = useState<QAData | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    qa: QAData | null;
+    isDeleting: boolean;
+  }>({ isOpen: false, qa: null, isDeleting: false });
 
   useEffect(() => {
     fetchQAs();
@@ -28,24 +34,13 @@ export default function QAManagement() {
 
   const fetchQAs = async () => {
     try {
-      const token = localStorage.getItem('adminToken');
-      if (!token) {
-        // Redirect to login if no token
-        window.location.href = '/admin/login';
-        return;
-      }
-
       const response = await fetch('/api/admin/qa', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include', // Include HTTP-only cookies
       });
 
       if (response.status === 401) {
-        // Token is invalid, redirect to login
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminUser');
-        window.location.href = '/admin/login';
+        // Token is invalid, redirect to login (middleware will handle this)
+        window.location.href = '/';
         return;
       }
 
@@ -66,7 +61,6 @@ export default function QAManagement() {
     answer: string;
   }) => {
     try {
-      const token = localStorage.getItem('adminToken');
       const url = '/api/admin/qa';
       const method = editingQA ? 'PUT' : 'POST';
       const body = editingQA
@@ -77,8 +71,8 @@ export default function QAManagement() {
         method,
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include', // Include HTTP-only cookies
         body: JSON.stringify(body),
       });
 
@@ -118,28 +112,42 @@ export default function QAManagement() {
     setShowModal(true);
   };
 
-  const handleDelete = async (qa: QAData) => {
-    if (!confirm('Are you sure you want to delete this Q&A?')) return;
+  const openDeleteModal = (qa: QAData) => {
+    setDeleteModal({ isOpen: true, qa, isDeleting: false });
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModal({ isOpen: false, qa: null, isDeleting: false });
+  };
+
+  const confirmDelete = async () => {
+    const qa = deleteModal.qa;
+    if (!qa) return;
+
+    setDeleteModal((prev) => ({ ...prev, isDeleting: true }));
 
     try {
-      const token = localStorage.getItem('adminToken');
       const response = await fetch(`/api/admin/qa?id=${qa._id}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include', // Include HTTP-only cookies
       });
 
       const data = await response.json();
 
+      if (response.status === 401) {
+        window.location.href = '/';
+        return;
+      }
+
       if (data.success) {
         setQAs(qas.filter((q) => q._id !== qa._id));
+        closeDeleteModal();
       } else {
-        alert(data.error || 'Error deleting Q&A');
+        setDeleteModal((prev) => ({ ...prev, isDeleting: false }));
       }
     } catch (error) {
       console.error('Error deleting Q&A:', error);
-      alert('Error deleting Q&A');
+      setDeleteModal((prev) => ({ ...prev, isDeleting: false }));
     }
   };
 
@@ -196,11 +204,15 @@ export default function QAManagement() {
           <EmptyState onAddNew={handleAddNew} />
         ) : (
           <>
-            <QACardList qas={qas} onEdit={handleEdit} onDelete={handleDelete} />
+            <QACardList
+              qas={qas}
+              onEdit={handleEdit}
+              onDelete={openDeleteModal}
+            />
             <QATable
               qas={qas}
               onEdit={handleEdit}
-              onDelete={handleDelete}
+              onDelete={openDeleteModal}
               formatDate={formatDate}
             />
           </>
@@ -213,6 +225,19 @@ export default function QAManagement() {
         editingQA={editingQA}
         onClose={handleCloseModal}
         onSubmit={handleSubmit}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDelete}
+        title="Delete Q&A"
+        message={`Are you sure you want to delete the question "${deleteModal.qa?.question}"? This action cannot be undone and will remove this Q&A from your AI training data.`}
+        confirmText="Delete Q&A"
+        cancelText="Cancel"
+        type="danger"
+        isLoading={deleteModal.isDeleting}
       />
     </div>
   );
